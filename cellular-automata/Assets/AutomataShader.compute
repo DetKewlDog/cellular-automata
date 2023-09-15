@@ -1,0 +1,47 @@
+﻿#pragma kernel CSMain
+
+RWTexture2D<float4> Input;
+RWTexture2D<float4> Result;
+
+int isEmpty(float2 offset, float2 id) {
+    return Input[id + offset].b != 1;
+}
+
+
+int move(float2 oldPos, float2 newPos) {
+    if (Input[newPos].b == 1 || Result[newPos].b == 1) return 0;
+    Result[newPos] = float4(0, 0, 1, 1);
+    Result[oldPos] = float4(0, 0, 0, 1);
+    return 1;
+}
+
+[numthreads(32, 32, 1)]
+void CSMain (uint3 id : SV_DispatchThreadID) {
+    Result[id.xy] = Input[id.xy];
+    if (Input[id.xy].r == 1 || Input[id.xy].b == 0) return;
+
+    float2 x = float2(1, 0);
+    float2 y = float2(0, 1);
+
+    float emptyR  = isEmpty( +x    , id.xy),
+          emptyL  = isEmpty( -x    , id.xy),
+          emptyU  = isEmpty(    +y , id.xy),
+          emptyD  = isEmpty(    -y , id.xy),
+          emptyUR = isEmpty( +x +y , id.xy),
+          emptyUL = isEmpty( -x +y , id.xy),
+          emptyDR = isEmpty( +x -y , id.xy),
+          emptyDL = isEmpty( -x -y , id.xy);
+
+    if      (emptyD ) move(id.xy, id.xy    -y );
+    else if (emptyDL) move(id.xy, id.xy -x -y );
+    else if (emptyDR) move(id.xy, id.xy +x -y );
+    else if (emptyL ) {
+        move(id.xy, id.xy - x);
+        move(id.xy - x, id.xy - 2 * x);
+    }
+    else if (emptyR ) {
+        move(id.xy, id.xy + x);
+        move(id.xy - x, id.xy - 2 * x);
+    }
+    else Result[id.xy] = Input[id.xy];
+}
